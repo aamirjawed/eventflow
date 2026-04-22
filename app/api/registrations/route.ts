@@ -9,7 +9,7 @@ import { sendConfirmationEmail } from "@/lib/email";
 /** GET /api/registrations — Admin: list all registrations with optional filters */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session) {
     console.warn("[API] Registrations: Unauthorized access attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -97,17 +97,19 @@ export async function POST(req: NextRequest) {
 
   console.log(`[API] Registration created: ${registration._id}`);
 
-  // Automatically send confirmation email
-  try {
-    console.log("[API] Attempting to send confirmation email...");
-    const emailResult = await sendConfirmationEmail(registration);
-    if (emailResult.error) {
-      console.error("[API] Resend returned an error:", emailResult.error);
-    } else {
-      console.log("[API] Registration email sent successfully!");
+  // Automatically send confirmation email (Skip for on-site registrations)
+  if (resolvedStatus !== "registered") {
+    try {
+      console.log("[API] Attempting to send confirmation email...");
+      const emailResult = await sendConfirmationEmail(registration);
+      if (emailResult.error) {
+        console.error("[API] Resend returned an error:", emailResult.error);
+      } else {
+        console.log("[API] Registration email sent successfully!");
+      }
+    } catch (err) {
+      console.error("[API] CRITICAL: Failed to auto-send registration email:", err);
     }
-  } catch (err) {
-    console.error("[API] CRITICAL: Failed to auto-send registration email:", err);
   }
 
   return NextResponse.json({ registration }, { status: 201 });

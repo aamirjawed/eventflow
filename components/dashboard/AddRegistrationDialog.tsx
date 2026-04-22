@@ -3,6 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DynamicForm } from "@/components/forms/DynamicForm";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface Props {
   open: boolean;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function AddRegistrationDialog({ open, onClose, onSuccess }: Props) {
+  const router = useRouter();
   async function handleSubmit(data: Record<string, unknown>) {
     const { name, email, phone, company, newsletter, role, tshirt, ...rest } = data as Record<string, string>;
 
@@ -31,7 +33,12 @@ export function AddRegistrationDialog({ open, onClose, onSuccess }: Props) {
     if (!res.ok) throw new Error(json.error || "Registration failed");
 
     toast.success(`${name} registered successfully!`);
+    
+    // Refresh the table first
     onSuccess();
+    
+    // Redirect to the verification/details page
+    router.push(`/verify/${json.registration._id}`);
   }
 
   return (

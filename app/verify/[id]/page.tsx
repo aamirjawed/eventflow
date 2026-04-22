@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { 
   CheckCircle2, AlertCircle, Loader2, User, Mail, 
-  Building2, Calendar, Smartphone, Printer, Download
+  Building2, Calendar, Smartphone, Printer, Download, UserPlus
 } from "lucide-react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 interface RegistrationData {
   name: string;
@@ -131,22 +132,31 @@ export default function VerifyPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-8 flex flex-col sm:flex-row gap-4">
-            <button 
-              onClick={() => window.print()}
-              className="flex-1 flex items-center justify-center gap-2 py-4 bg-slate-900 text-white rounded-xl font-bold"
+          <div className="pt-8 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button 
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-2 py-4 bg-slate-900 text-white rounded-xl font-bold transition-all active:scale-95"
+              >
+                <Printer className="h-4 w-4" /> Print Badge
+              </button>
+              <button 
+                onClick={() => {
+                  document.title = `Badge_${registration.name.replace(/\s+/g, '_')}`;
+                  window.print();
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-4 bg-blue-600 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-200"
+              >
+                <Download className="h-4 w-4" /> Download PDF
+              </button>
+            </div>
+            
+            <Link 
+              href="/dashboard"
+              className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold transition-all hover:bg-emerald-100 active:scale-95"
             >
-              <Printer className="h-4 w-4" /> Print Badge
-            </button>
-            <button 
-              onClick={() => {
-                document.title = `Badge_${registration.name.replace(/\s+/g, '_')}`;
-                window.print();
-              }}
-              className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-xl font-bold"
-            >
-              <Download className="h-4 w-4" /> Download PDF
-            </button>
+              <UserPlus className="h-4 w-4" /> Register Another Person
+            </Link>
           </div>
           
           <div className="text-center">
