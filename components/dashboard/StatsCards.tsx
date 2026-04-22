@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { Card, CardContent, Skeleton } from "@/components/ui/index";
 import { Users, UserCheck, UserPlus, QrCode } from "lucide-react";
@@ -14,7 +15,8 @@ interface Stats {
 }
 
 export function StatsCards() {
-  const { data, isLoading } = useSWR<Stats>("/api/admin/stats", fetcher, {
+  const { status } = useSession();
+  const { data, isLoading } = useSWR<Stats>(status === "authenticated" ? "/api/admin/stats" : null, fetcher, {
     refreshInterval: 10000, // Refresh every 10s for real-time feel
   });
 

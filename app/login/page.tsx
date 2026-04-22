@@ -30,26 +30,25 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
-    // If on localhost, attempt to "white-wash" (instant login) using credentials first
-    if (isLocalhost) {
-      console.log(`[AUTH] Localhost detected: Attempting instant login for ${email}`);
-      const res = await signIn("credentials", {
-        email,
-        redirect: false,
-        callbackUrl: "/dashboard",
-      });
+    console.log(`[AUTH] Login attempt for: ${email}`);
 
-      if (res?.ok) {
-        console.log("[AUTH] Instant login successful!");
-        window.location.href = "/dashboard";
-        return;
-      }
-      
-      console.log("[AUTH] Instant login failed or declined, falling back to Magic Link.");
+    // ALWAYS try "credentials" login first. 
+    // If the email is whitelisted, lib/auth.ts will allow it instantly.
+    const res = await signIn("credentials", {
+      email,
+      redirect: false,
+      callbackUrl: "/dashboard",
+    });
+
+    if (res?.ok) {
+      console.log("[AUTH] Instant login successful (Admin Bypass)");
+      window.location.href = "/dashboard";
+      return;
     }
 
-    // Fallback/Default: Standard Magic Link
-    const res = await signIn("email", {
+    // FALLBACK: Standard Magic Link for non-whitelisted users or if credentials fail
+    console.log("[AUTH] Instant login failed, falling back to Magic Link.");
+    const emailRes = await signIn("email", {
       email,
       redirect: false,
       callbackUrl: "/dashboard",
@@ -57,7 +56,7 @@ function LoginForm() {
 
     setLoading(false);
 
-    if (res?.error) {
+    if (emailRes?.error) {
       setError("This email is not authorized to access the dashboard.");
     } else {
       setSent(true);

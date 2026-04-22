@@ -58,31 +58,35 @@ export const authOptions: NextAuthOptions = {
     // Credentials provider for local development "Auto Login"
     CredentialsProvider({
       id: "credentials",
-      name: "Development Login",
+      name: "Admin Login",
       credentials: {
         email: { label: "Email", type: "email" },
       },
       async authorize(credentials) {
-        // ONLY allow this on localhost / dev
-        if (process.env.NODE_ENV === "production" && !process.env.ALLOW_PROD_CREDENTIALS) {
-          return null;
+        const email = credentials?.email?.toLowerCase();
+        
+        // If the email is in the admin whitelist, allow instant login regardless of environment
+        if (email && ADMIN_EMAILS.includes(email)) {
+          console.log(`[AUTH] Admin bypass login for: ${email}`);
+          return {
+            id: `admin-${email}`,
+            name: "Admin",
+            email: email,
+          };
         }
 
-        let email = credentials?.email?.toLowerCase();
-        
-        // If provided email is empty or not in allowed list, force use the first allowed one
-        if (!email || !ADMIN_EMAILS.includes(email)) {
-          email = ADMIN_EMAILS[0] || "admin@example.com";
+        // Only allow non-whitelisted credentials in development
+        if (process.env.NODE_ENV !== "production") {
+          const devEmail = email || ADMIN_EMAILS[0] || "admin@example.com";
+          console.log(`[AUTH] Dev mode auto-login: ${devEmail}`);
+          return {
+            id: "dev-admin",
+            name: "Dev Admin",
+            email: devEmail,
+          };
         }
         
-        console.log(`[AUTH] Credentials login: ${email}`);
-
-        // Return a dummy user object 
-        return {
-          id: "dev-admin",
-          name: "Dev Admin",
-          email: email,
-        };
+        return null;
       },
     }),
     EmailProvider({

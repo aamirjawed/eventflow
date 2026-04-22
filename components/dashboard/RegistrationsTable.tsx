@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { Badge, Skeleton } from "@/components/ui/index";
 import { Button } from "@/components/ui/button";
@@ -42,10 +43,12 @@ export function RegistrationsTable() {
     limit: "20",
   }).toString();
 
+  const { status: sessionStatus } = useSession();
+
   const { data, isLoading, mutate } = useSWR<{
     registrations: (IRegistration & { _id: string })[];
     total: number;
-  }>(`/api/registrations?${query}`, fetcher, { keepPreviousData: true });
+  }>(sessionStatus === "authenticated" ? `/api/registrations?${query}` : null, fetcher, { keepPreviousData: true });
 
   const totalPages = Math.ceil((data?.total || 0) / 20);
 
