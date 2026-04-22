@@ -47,14 +47,14 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+
   }
 }
 
@@ -63,15 +63,18 @@
   body * {
     visibility: hidden;
   }
+
   #badge-print-area,
   #badge-print-area * {
     visibility: visible;
   }
+
   #badge-print-area {
     position: absolute;
     left: 0;
     top: 0;
   }
+
   @page {
     size: 3.375in 2.125in;
     margin: 0;

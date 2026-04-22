@@ -28,8 +28,20 @@ export async function connectDB() {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
+    const opts = {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+      heartbeatFrequencyMS: 1000,
+    };
+
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
+
+      return m;
+    }).catch((err) => {
+
+      cached.promise = null; // Reset promise on failure
+      throw err;
     });
   }
 

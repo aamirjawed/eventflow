@@ -59,10 +59,13 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/registrations — Public: pre-register OR Admin: on-site register */
 export async function POST(req: NextRequest) {
+  console.log("[API] POST /api/registrations request received");
   await connectDB();
+  console.log("[API] DB connected in /api/registrations");
 
   const body = await req.json();
   const { name, email, phone, company, customFields, status } = body;
+  console.log(`[API] Registering: ${name} (${email})`);
 
   if (!name || !email) {
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
@@ -71,6 +74,7 @@ export async function POST(req: NextRequest) {
   // Check for duplicate email
   const existing = await Registration.findOne({ email: email.toLowerCase() });
   if (existing) {
+    console.warn(`[API] Duplicate email registration attempt: ${email}`);
     return NextResponse.json(
       { error: "This email is already registered" },
       { status: 409 }
@@ -80,6 +84,7 @@ export async function POST(req: NextRequest) {
   // Only admins can set status to "registered"
   const session = await getServerSession(authOptions);
   const resolvedStatus = session ? (status || "registered") : "pre_registered";
+  console.log(`[API] Status resolved to: ${resolvedStatus}`);
 
   const registration = await Registration.create({
     name,
@@ -90,8 +95,11 @@ export async function POST(req: NextRequest) {
     status: resolvedStatus,
   });
 
+  console.log(`[API] Registration created: ${registration._id}`);
+
   // Automatically send confirmation email
   try {
+    console.log("[API] Attempting to send confirmation email...");
     const emailResult = await sendConfirmationEmail(registration);
     if (emailResult.error) {
       console.error("[API] Resend returned an error:", emailResult.error);

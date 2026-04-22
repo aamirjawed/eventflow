@@ -6,21 +6,29 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/forms?slug=pre-registration — public, used by registration page */
 export async function GET(req: NextRequest) {
+  console.log("[API] GET /api/forms request received");
   await connectDB();
+  console.log("[API] DB connected in /api/forms");
 
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug") || "pre-registration";
+  console.log(`[API] Fetching form for slug: ${slug}`);
 
   let form = await FormSchema.findOne({ slug, isActive: true }).lean();
   
   // Auto-seed if it's the default form and it doesn't exist
   if (!form && slug === "pre-registration") {
+    console.log("[API] Form not found, attempting to seed...");
     const { seedDefaultForm } = await import("@/scripts/seed");
     await seedDefaultForm();
     form = await FormSchema.findOne({ slug, isActive: true }).lean();
   }
 
-  if (!form) return NextResponse.json({ error: "Form not found" }, { status: 404 });
+  if (!form) {
+    console.warn("[API] Form not found after seeding attempt");
+    return NextResponse.json({ error: "Form not found" }, { status: 404 });
+  }
 
+  console.log("[API] Form found and returning");
   return NextResponse.json({ form });
 }
