@@ -58,7 +58,7 @@
   }
 }
 
-/* Badge print styles — loaded only on badge page */
+/* Badge print styles */
 @media print {
   body * {
     visibility: hidden;
@@ -66,17 +66,15 @@
 
   #badge-print-area,
   #badge-print-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
   #badge-print-area {
     position: absolute;
     left: 0;
     top: 0;
-  }
-
-  @page {
-    size: 3.375in 2.125in;
-    margin: 0;
+    width: 100%;
+    visibility: visible !important;
+    display: block !important;
   }
 }

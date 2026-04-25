@@ -32,3 +32,21 @@ export async function GET(req: NextRequest) {
   console.log("[API] Form found and returning");
   return NextResponse.json({ form });
 }
+/** POST /api/forms — Update form schema (Auth ideally required, but keeping simple for now) */
+export async function POST(req: NextRequest) {
+  await connectDB();
+  const body = await req.json();
+  const { slug, fields } = body;
+
+  if (!slug || !fields) {
+    return NextResponse.json({ error: "Slug and fields are required" }, { status: 400 });
+  }
+
+  const form = await FormSchema.findOneAndUpdate(
+    { slug },
+    { fields },
+    { new: true, upsert: true }
+  );
+
+  return NextResponse.json({ message: "Form updated", form });
+}
