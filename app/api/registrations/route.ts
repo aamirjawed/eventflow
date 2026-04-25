@@ -34,11 +34,7 @@ export async function GET(req: NextRequest) {
     }
   }
   if (search) {
-    query.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-      { company: { $regex: search, $options: "i" } },
-    ];
+    query.$text = { $search: search };
   }
 
   console.log("[API] Registration Query:", JSON.stringify(query));

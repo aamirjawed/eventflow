@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { 
   CheckCircle2, AlertCircle, Loader2, User, Mail, 
   Building2, Calendar, Smartphone, Printer, Download, UserPlus,
@@ -48,6 +50,9 @@ const DEFAULT_CONFIG: BadgeConfig = {
 
 export default function VerifyPage() {
   const { id } = useParams();
+  const { status: sessionStatus } = useSession();
+  const router = useRouter();
+
   const [data, setData] = useState<{ registration: RegistrationData; alreadyScanned: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +62,7 @@ export default function VerifyPage() {
   const [config, setConfig] = useState<BadgeConfig>(DEFAULT_CONFIG);
 
   useEffect(() => {
+    // We allow public access now, but data will be masked if not logged in
     async function verify() {
       try {
         const res = await fetch(`/api/verify/${id}`);
