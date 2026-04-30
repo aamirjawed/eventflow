@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { QRScanner } from "@/components/dashboard/QRScanner";
 import { ChevronLeft, QrCode } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 export const metadata: Metadata = {
   title: "Check-in Scanner | EventFlow",
@@ -19,8 +20,8 @@ export default function ScanPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">QR Check-in</h1>
-            <p className="text-muted-foreground text-sm font-medium">
+            <Logo size="md" />
+            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mt-1 opacity-70">
               Mode: Admin Scanner
             </p>
           </div>
@@ -35,8 +36,8 @@ export default function ScanPage() {
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-muted-foreground">
-          Connected to: {process.env.NEXT_PUBLIC_APP_NAME || "EventFlow"} Server
+        <p className="text-[10px] text-muted-foreground font-medium">
+          Secure System • powered by TechfluenX
         </p>
       </div>
     </div>

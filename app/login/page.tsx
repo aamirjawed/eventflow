@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/index";
 import { Zap, Mail, Loader2 } from "lucide-react";
 import { Suspense } from "react";
+import { Logo } from "@/components/Logo";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -149,13 +150,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-            <Zap className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-bold">
-            {process.env.NEXT_PUBLIC_APP_NAME || "EventFlow"}
-          </span>
+        <div className="flex items-center justify-center mb-8">
+          <Logo size="lg" />
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border p-8">

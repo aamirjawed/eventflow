@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { useRouter } from "next/navigation";
-import { Camera, RefreshCw, Play, Square } from "lucide-react";
+import { Camera, RefreshCw, Play, Square, Maximize, Minimize } from "lucide-react";
 
 export function QRScanner() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "starting" | "active" | "error">("idle");
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Initialize the scanner instance once on mount
   useEffect(() => {
@@ -25,8 +27,34 @@ export function QRScanner() {
     };
   }, []);
 
+  // Handle Fullscreen changes (e.g. Esc key)
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullScreenChange);
+    };
+  }, []);
+
+  const toggleFullScreen = async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Error attempting to toggle full-screen:", err);
+    }
+  };
+
   const startScanner = async () => {
-    if (!scannerRef.current) return;
+    if (!scannerRef.current || status === "active" || status === "starting") return;
 
     setStatus("starting");
     setError(null);
@@ -78,8 +106,11 @@ export function QRScanner() {
   }, []);
 
   return (
-    <div className="w-full max-w-lg mx-auto">
-      <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800">
+    <div 
+      ref={containerRef}
+      className={`w-full mx-auto transition-all duration-300 ${isFullScreen ? 'max-w-none h-screen bg-gray-900/95 backdrop-blur-sm flex items-center justify-center p-6' : 'max-w-lg'}`}
+    >
+      <div className={`bg-white dark:bg-gray-900 shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800 rounded-[2.5rem] ${isFullScreen ? 'w-full max-w-lg' : ''}`}>
 
         {/* Header */}
         <div className="p-8 bg-primary/5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
@@ -92,18 +123,30 @@ export function QRScanner() {
               <p className="text-xs text-muted-foreground font-medium">Align QR code within the frame</p>
             </div>
           </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
-          >
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFullScreen}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+              title={isFullScreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullScreen ? (
+                <Minimize className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Maximize className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+            >
+              <RefreshCw className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
         {/* Scanner Feed */}
         <div className="p-6">
           <div className="relative overflow-hidden rounded-2xl bg-black min-h-[300px] flex items-center justify-center">
-
             {/* The actual video element container */}
             <div id="qr-reader-video" className="w-full h-full [&_video]:object-cover" />
 
@@ -124,7 +167,7 @@ export function QRScanner() {
             )}
           </div>
 
-          {error && (
+          {error && (status === "error" || !error.includes("permission")) && (
             <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-center text-xs font-semibold animate-in fade-in">
               {error}
             </div>

@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { 
   CheckCircle2, AlertCircle, Loader2, User, Mail, 
   Building2, Calendar, Smartphone, Printer, Download, UserPlus,
-  Settings2, Eye, EyeOff, Move, LayoutDashboard, Check
+  Settings2, Eye, EyeOff, Move, LayoutDashboard, Check, Camera
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 
 interface RegistrationData {
   name: string;
@@ -92,7 +93,13 @@ export default function VerifyPage() {
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-red-100 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold mb-2">Verification Failed</h1>
-          <p className="text-red-500 text-sm">{error}</p>
+          <p className="text-red-500 text-sm mb-6">{error}</p>
+          <Link 
+            href="/scan"
+            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-xl font-bold transition-all active:scale-95"
+          >
+            <Camera className="h-4 w-4" /> Return to Scanner
+          </Link>
         </div>
       </div>
     );
@@ -237,10 +244,10 @@ export default function VerifyPage() {
             </div>
             
             <Link 
-              href="/dashboard"
+              href="/scan"
               className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-bold transition-all hover:bg-emerald-100 active:scale-95"
             >
-              <UserPlus className="h-4 w-4" /> Register Another Person
+              <Camera className="h-4 w-4" /> Scan Next Badge
             </Link>
           </div>
           
@@ -338,7 +345,7 @@ function BadgeCard({
         onMove={(x, y) => onUpdatePos?.('appName', x, y)}
         onToggle={() => onToggleVisible?.('appName')}
       >
-        <p className="text-blue-600 font-bold uppercase tracking-[0.2em] text-[7px]">{appName}</p>
+        <Logo size="sm" className="scale-[0.4] origin-top-left -ml-1" />
       </DraggableElement>
 
       <DraggableElement
