@@ -15,9 +15,8 @@ interface Stats {
 }
 
 export function StatsCards() {
-  const { status } = useSession();
-  const { data, isLoading } = useSWR<Stats>(status === "authenticated" ? "/api/admin/stats" : null, fetcher, {
-    refreshInterval: 10000, // Refresh every 10s for real-time feel
+  const { data, isLoading } = useSWR<Stats>("/api/admin/stats", fetcher, {
+    refreshInterval: 3000, // Refresh every 3s for real-time feel
   });
 
   const cards = [

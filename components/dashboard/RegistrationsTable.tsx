@@ -84,7 +84,10 @@ export function RegistrationsTable() {
   const { data, isLoading, mutate } = useSWR<{
     registrations: (IRegistration & { _id: string })[];
     total: number;
-  }>(sessionStatus === "authenticated" ? `/api/registrations?${query}` : null, fetcher, { keepPreviousData: true });
+  }>(`/api/registrations?${query}`, fetcher, {
+    keepPreviousData: true,
+    refreshInterval: 3000,
+  });
 
   const totalPages = Math.ceil((data?.total || 0) / 20);
 
