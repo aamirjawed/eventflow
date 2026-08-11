@@ -1,29 +1,21 @@
 import nodemailer from "nodemailer";
 
-/**
- * Configure SMTP transporter using standard environment variables.
- * For Gmail: 
- * SMTP_HOST=smtp.gmail.com
- * SMTP_PORT=465 (SSL) or 587 (TLS)
- * SMTP_USER=your-email@gmail.com
- * SMTP_PASSWORD=your-app-password (Not your main password)
- */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
-
 export async function sendConfirmationEmail(reg: any) {
-  console.log(`[EMAIL] Attempting to send (Nodemailer) to ${reg.email}...`);
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+
+  // If SMTP is not configured or uses placeholder credentials, skip gracefully
+  if (!host || !user || !pass || user.includes("your-email") || pass.includes("your-app-password")) {
+    console.warn(`[EMAIL] SMTP credentials not configured. Skipping confirmation email to ${reg.email}.`);
+    return { success: false, warning: "SMTP not configured" };
+  }
+
+  console.log(`[EMAIL] Sending confirmation email (Nodemailer) to ${reg.email}...`);
   
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "EventFlow";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@eventflow.app";
+  const fromEmail = process.env.EMAIL_FROM || user || "noreply@eventflow.app";
 
   const statusLabel = reg.status === "pre_registered" ? "Pre-registered" : "Registered";
   const verifyUrl = `${appUrl}/verify/${reg._id}`;
@@ -62,16 +54,26 @@ export async function sendConfirmationEmail(reg: any) {
   `;
 
   try {
+    const transporter = nodemailer.createTransport({
+      host: host,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
+      auth: {
+        user: user,
+        pass: pass,
+      },
+    });
+
     const info = await transporter.sendMail({
       from: `"${appName}" <${fromEmail}>`,
       to: reg.email,
       subject: `Your registration confirmation — ${appName}`,
       html: html,
     });
-    console.log(`[EMAIL] Message sent: ${info.messageId}`);
+    console.log(`[EMAIL] Message sent successfully: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error("[EMAIL] Nodemailer Error:", error);
-    return { error: error };
+  } catch (error: any) {
+    console.error("[EMAIL WARNING] Nodemailer sending failed (suppressed):", error.message || error);
+    return { success: false, error: error.message || "Failed to send email" };
   }
 }

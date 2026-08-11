@@ -134,7 +134,7 @@ class SunmiPrinterService {
     if (bridge) {
       this.setState({
         status: "connected",
-        deviceName: "Sunmi Hardware Printer",
+        deviceName: "Sunmi Built-in Printer",
         method: "bridge",
         error: null,
       });
@@ -201,10 +201,7 @@ class SunmiPrinterService {
     this.detect();
   }
 
-  /**
-   * Save printer connection permanently so Sunmi POS never forgets it.
-   */
-  public savePrinterPreference(deviceName: string = "Sunmi POS Built-in Printer") {
+  public savePrinterPreference(deviceName: string = "Sunmi POS Thermal Printer") {
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY_PAIRED, "true");
       localStorage.setItem(STORAGE_KEY_NAME, deviceName);
@@ -212,9 +209,6 @@ class SunmiPrinterService {
     }
   }
 
-  /**
-   * Forget saved printer.
-   */
   public forgetPrinter() {
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_KEY_PAIRED);
@@ -231,11 +225,7 @@ class SunmiPrinterService {
     }
   }
 
-  /**
-   * Prompts pairing / auto-connects and saves preference permanently.
-   */
   public async connectBluetooth(): Promise<boolean> {
-    // Save Sunmi POS preference immediately so user is connected forever
     this.savePrinterPreference("Sunmi POS Thermal Printer");
 
     if (typeof navigator !== "undefined" && navigator.bluetooth) {
@@ -287,13 +277,12 @@ class SunmiPrinterService {
       }
     }
 
-    // Always ensure printer is marked as connected permanently!
     this.savePrinterPreference("Sunmi POS Thermal Printer");
     return true;
   }
 
   public async printTicket(ticket: TicketData): Promise<void> {
-    // 1. Native Sunmi SDK Bridge
+    // 1. Native Sunmi SDK Bridge (if running inside Sunmi App/Webview)
     const sdkBridge = this.getSdkBridge();
     if (sdkBridge) {
       console.log("[SunmiPrinter] Printing via Sunmi SDK Bridge");
@@ -301,17 +290,82 @@ class SunmiPrinterService {
       return;
     }
 
-    // 2. Web Bluetooth Connection (if GATT write characteristic is present)
+    // 2. Web Bluetooth GATT (if Bluetooth hardware GATT characteristic is paired)
     if (this.gattCharacteristic && this.gattDevice?.gatt?.connected) {
       console.log("[SunmiPrinter] Printing via Web Bluetooth GATT");
       await this.printViaBluetooth(ticket);
       return;
     }
 
-    // 3. Instant 58mm Thermal Print via Sunmi Chrome Browser
-    console.log("[SunmiPrinter] Executing instant Sunmi thermal print...");
+    // 3. Direct Thermal Web Socket / Intent Printing (Direct inside Sunmi POS machine)
+    const bytes = this.buildEscPosBytes(ticket);
+    const printedSilently = await this.printViaDirectIntentOrWebSocket(bytes);
+
+    if (printedSilently) {
+      console.log("[SunmiPrinter] Printed directly inside Sunmi machine via direct intent/socket!");
+      return;
+    }
+
+    // 4. Fallback to standard print dialog only if silent direct print is unsupported
+    console.log("[SunmiPrinter] Falling back to standard thermal print dialog...");
     if (typeof window !== "undefined") {
       window.print();
+    }
+  }
+
+  /**
+   * Sends ESC/POS binary data directly to Sunmi / RawBT Local WebSocket or Web Intent
+   * Bypasses Chrome system print preview dialog completely!
+   */
+  private async printViaDirectIntentOrWebSocket(bytes: Uint8Array): Promise<boolean> {
+    if (typeof window === "undefined") return false;
+
+    // Strategy A: Try local RawBT / Sunmi Thermal Printer WebSocket daemon (ws://localhost:40213)
+    try {
+      const socketSuccess = await new Promise<boolean>((resolve) => {
+        const ws = new WebSocket("ws://127.0.0.1:40213");
+        ws.binaryType = "arraybuffer";
+
+        const timeout = setTimeout(() => {
+          ws.close();
+          resolve(false);
+        }, 800);
+
+        ws.onopen = () => {
+          clearTimeout(timeout);
+          ws.send(bytes.buffer);
+          setTimeout(() => {
+            ws.close();
+            resolve(true);
+          }, 300);
+        };
+
+        ws.onerror = () => {
+          clearTimeout(timeout);
+          resolve(false);
+        };
+      });
+
+      if (socketSuccess) return true;
+    } catch {
+      // ignore websocket failure
+    }
+
+    // Strategy B: Trigger RawBT / Sunmi Web Intent Scheme (Direct Android Printer Driver)
+    try {
+      let binaryStr = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binaryStr += String.fromCharCode(bytes[i]);
+      }
+      const base64Data = btoa(binaryStr);
+
+      // Launch RawBT / Sunmi Direct Print Intent URL
+      const intentUrl = `intent:${base64Data}#Intent;scheme=rawbt;package=ru.a2ol.rawbt;end;`;
+      window.location.href = intentUrl;
+      return true;
+    } catch (err) {
+      console.warn("[SunmiPrinter] Direct intent launch failed:", err);
+      return false;
     }
   }
 
@@ -334,9 +388,7 @@ class SunmiPrinterService {
       console.log("[SunmiPrinter] Web Bluetooth print complete!");
     } catch (err) {
       console.error("[SunmiPrinter] Bluetooth write error:", err);
-      if (typeof window !== "undefined") {
-        window.print();
-      }
+      await this.printViaDirectIntentOrWebSocket(bytes);
     }
   }
 
@@ -384,7 +436,8 @@ class SunmiPrinterService {
       printer.lineWrap(5);
     } catch (err) {
       console.error("[SunmiPrinter] SDK Bridge print error:", err);
-      if (typeof window !== "undefined") window.print();
+      const bytes = this.buildEscPosBytes(ticket);
+      this.printViaDirectIntentOrWebSocket(bytes);
     }
   }
 

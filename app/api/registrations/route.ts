@@ -78,13 +78,19 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Check for duplicate email
-    const existing = await Registration.findOne({ email: email.toLowerCase() });
-    if (existing) {
-      return NextResponse.json(
-        { error: "This email is already registered" },
-        { status: 409 }
-      );
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check for duplicate email safely
+    try {
+      const existing = await Registration.findOne({ email: normalizedEmail });
+      if (existing) {
+        return NextResponse.json(
+          { error: "This email is already registered" },
+          { status: 409 }
+        );
+      }
+    } catch (dupErr) {
+      console.warn("[API /api/registrations] Duplicate check warning:", dupErr);
     }
 
     // Determine status
@@ -93,25 +99,30 @@ export async function POST(req: NextRequest) {
 
     const registration = await Registration.create({
       name,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       phone,
       company,
       customFields: customFields || {},
       status: resolvedStatus,
     });
 
-    // Automatically send confirmation email (Skip for on-site registrations)
+    // Automatically send confirmation email (Safe non-blocking execution)
     if (resolvedStatus !== "registered") {
       try {
-        await sendConfirmationEmail(registration);
+        sendConfirmationEmail(registration).catch((e) =>
+          console.warn("[API /api/registrations] Confirmation email background error:", e)
+        );
       } catch (emailErr) {
-        console.error("[API /api/registrations] Auto-send email warning:", emailErr);
+        console.warn("[API /api/registrations] Email trigger warning:", emailErr);
       }
     }
 
     return NextResponse.json({ registration }, { status: 201 });
   } catch (err: any) {
     console.error("[API /api/registrations] POST Error:", err);
-    return NextResponse.json({ error: err.message || "Failed to create registration" }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Failed to complete registration" },
+      { status: 500 }
+    );
   }
 }
