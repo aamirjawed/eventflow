@@ -32,11 +32,16 @@ export const PrintTicketButton: React.FC<PrintTicketButtonProps> = ({
   const handlePrint = async () => {
     try {
       setIsPrinting(true);
+      setActiveTicket(ticket);
+
       if (onBeforePrint) {
         await onBeforePrint();
       }
 
-      // Execute Sunmi thermal print directly (No Chrome print dialog)
+      // Small delay to allow react to render ThermalTicket into DOM
+      await new Promise((res) => setTimeout(res, 50));
+
+      // Execute Sunmi thermal print directly (NO Play Store redirects)
       await sunmiPrinter.printTicket(ticket);
 
       setIsPrinting(false);
@@ -65,9 +70,9 @@ export const PrintTicketButton: React.FC<PrintTicketButtonProps> = ({
         {isPrinting ? "Printing..." : label}
       </Button>
 
-      {/* Hidden print container rendered only during active print execution */}
+      {/* 58mm Thermal Ticket container for Chrome browser print */}
       {activeTicket && (
-        <div className="hidden print:block fixed inset-0 bg-white z-[9999]">
+        <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-0 m-0">
           <ThermalTicket ticket={activeTicket} config={config} isPrintOnly />
         </div>
       )}

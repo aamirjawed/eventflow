@@ -297,75 +297,10 @@ class SunmiPrinterService {
       return;
     }
 
-    // 3. Direct Thermal Web Socket / Intent Printing (Direct inside Sunmi POS machine)
-    const bytes = this.buildEscPosBytes(ticket);
-    const printedSilently = await this.printViaDirectIntentOrWebSocket(bytes);
-
-    if (printedSilently) {
-      console.log("[SunmiPrinter] Printed directly inside Sunmi machine via direct intent/socket!");
-      return;
-    }
-
-    // 4. Fallback to standard print dialog only if silent direct print is unsupported
-    console.log("[SunmiPrinter] Falling back to standard thermal print dialog...");
+    // 3. High-Speed 58mm Thermal Print via Sunmi Chrome Browser (NO Play Store redirects)
+    console.log("[SunmiPrinter] Triggering 58mm thermal print in Chrome...");
     if (typeof window !== "undefined") {
       window.print();
-    }
-  }
-
-  /**
-   * Sends ESC/POS binary data directly to Sunmi / RawBT Local WebSocket or Web Intent
-   * Bypasses Chrome system print preview dialog completely!
-   */
-  private async printViaDirectIntentOrWebSocket(bytes: Uint8Array): Promise<boolean> {
-    if (typeof window === "undefined") return false;
-
-    // Strategy A: Try local RawBT / Sunmi Thermal Printer WebSocket daemon (ws://localhost:40213)
-    try {
-      const socketSuccess = await new Promise<boolean>((resolve) => {
-        const ws = new WebSocket("ws://127.0.0.1:40213");
-        ws.binaryType = "arraybuffer";
-
-        const timeout = setTimeout(() => {
-          ws.close();
-          resolve(false);
-        }, 800);
-
-        ws.onopen = () => {
-          clearTimeout(timeout);
-          ws.send(bytes.buffer);
-          setTimeout(() => {
-            ws.close();
-            resolve(true);
-          }, 300);
-        };
-
-        ws.onerror = () => {
-          clearTimeout(timeout);
-          resolve(false);
-        };
-      });
-
-      if (socketSuccess) return true;
-    } catch {
-      // ignore websocket failure
-    }
-
-    // Strategy B: Trigger RawBT / Sunmi Web Intent Scheme (Direct Android Printer Driver)
-    try {
-      let binaryStr = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binaryStr += String.fromCharCode(bytes[i]);
-      }
-      const base64Data = btoa(binaryStr);
-
-      // Launch RawBT / Sunmi Direct Print Intent URL
-      const intentUrl = `intent:${base64Data}#Intent;scheme=rawbt;package=ru.a2ol.rawbt;end;`;
-      window.location.href = intentUrl;
-      return true;
-    } catch (err) {
-      console.warn("[SunmiPrinter] Direct intent launch failed:", err);
-      return false;
     }
   }
 
@@ -388,7 +323,9 @@ class SunmiPrinterService {
       console.log("[SunmiPrinter] Web Bluetooth print complete!");
     } catch (err) {
       console.error("[SunmiPrinter] Bluetooth write error:", err);
-      await this.printViaDirectIntentOrWebSocket(bytes);
+      if (typeof window !== "undefined") {
+        window.print();
+      }
     }
   }
 
@@ -436,8 +373,7 @@ class SunmiPrinterService {
       printer.lineWrap(5);
     } catch (err) {
       console.error("[SunmiPrinter] SDK Bridge print error:", err);
-      const bytes = this.buildEscPosBytes(ticket);
-      this.printViaDirectIntentOrWebSocket(bytes);
+      if (typeof window !== "undefined") window.print();
     }
   }
 
