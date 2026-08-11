@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { sunmiPrinter, PrinterConnectionState } from "@/lib/printer/sunmiPrinter";
-import { Printer, CheckCircle2, Bluetooth, Loader2 } from "lucide-react";
+import { Printer, CheckCircle2, Bluetooth, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const PrinterConnectionBadge: React.FC = () => {
@@ -23,10 +23,25 @@ export const PrinterConnectionBadge: React.FC = () => {
   }, []);
 
   const handleConnect = async () => {
+    if (connecting) {
+      // Force cancel if user taps again while connecting
+      setConnecting(false);
+      return;
+    }
+
     setConnecting(true);
+
+    // Safety fallback: force reset spinner after 10 seconds max
+    const forceResetTimer = setTimeout(() => {
+      setConnecting(false);
+    }, 10000);
+
     try {
       await sunmiPrinter.connectBluetooth();
+    } catch (err) {
+      console.error("[PrinterConnectionBadge] Connection error:", err);
     } finally {
+      clearTimeout(forceResetTimer);
       setConnecting(false);
     }
   };
@@ -85,7 +100,7 @@ export const PrinterConnectionBadge: React.FC = () => {
     );
   }
 
-  // Bluetooth Disconnected — show prominent Connect Printer button on mobile & desktop
+  // Bluetooth Disconnected — show prominent Connect Printer button
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 shadow-sm">
       <Bluetooth className="h-4 w-4 flex-shrink-0 text-blue-400" />
@@ -93,11 +108,14 @@ export const PrinterConnectionBadge: React.FC = () => {
       <Button
         size="sm"
         onClick={handleConnect}
-        disabled={connecting}
         className="h-7 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium border-0 ml-1 gap-1 shadow"
       >
-        {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bluetooth className="h-3.5 w-3.5" />}
-        {connecting ? "Connecting..." : "Connect Printer"}
+        {connecting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Bluetooth className="h-3.5 w-3.5" />
+        )}
+        {connecting ? "Cancel" : "Connect Printer"}
       </Button>
     </div>
   );
