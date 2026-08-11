@@ -182,8 +182,8 @@ export function BadgePrintClient({ id }: { id: string }) {
 
       <style>{`
         @media print {
-          html, body { margin: 0; padding: 0; background: white !important; }
-          @page { size: 3.375in 2.125in; margin: 0; }
+          html, body { margin: 0; padding: 0; width: 58mm !important; background: white !important; }
+          @page { size: 58mm auto; margin: 0; }
         }
       `}</style>
     </div>

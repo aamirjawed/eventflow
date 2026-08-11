@@ -1,15 +1,5 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define MONGODB_URI in your .env.local file");
-}
-
-/**
- * Global cache to prevent multiple connections in development (hot-reload).
- * In production Next.js, each serverless function gets a fresh module scope.
- */
 declare global {
   // eslint-disable-next-line no-var
   var _mongooseCache: {
@@ -25,6 +15,12 @@ if (!cached) {
 }
 
 export async function connectDB() {
+  const MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI) {
+    console.error("[DB Error] MONGODB_URI is not defined in environment variables");
+    throw new Error("Please define MONGODB_URI in your environment variables");
+  }
+
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
@@ -34,12 +30,9 @@ export async function connectDB() {
       heartbeatFrequencyMS: 1000,
     };
 
-
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
-
       return m;
     }).catch((err) => {
-
       cached.promise = null; // Reset promise on failure
       throw err;
     });
