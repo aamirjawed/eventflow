@@ -52,7 +52,8 @@ export async function GET(req: NextRequest) {
 
       if (!form && slug === "pre-registration") {
         try {
-          form = (await FormSchema.create(DEFAULT_FORM)).toObject();
+          const created = await FormSchema.create(DEFAULT_FORM);
+          form = JSON.parse(JSON.stringify(created));
         } catch {
           form = DEFAULT_FORM as any;
         }
