@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Loader2, Printer, Move, Eye, EyeOff, LayoutDashboard, Settings2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { sunmiPrinter } from "@/lib/printer/sunmiPrinter";
 
 interface BadgeData {
   id: string;
@@ -40,7 +41,17 @@ export function BadgePrintClient({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [isDesignMode, setIsDesignMode] = useState(false);
   const [config, setConfig] = useState<BadgeConfig>(DEFAULT_CONFIG);
-  const [isAutoPrintEnabled, setIsAutoPrintEnabled] = useState(true);
+
+  const handlePrint = () => {
+    if (!data) return;
+    sunmiPrinter.printTicket({
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      company: data.company,
+      status: data.status,
+    });
+  };
 
   useEffect(() => {
     fetch(`/api/badge/${id}`)
@@ -48,9 +59,16 @@ export function BadgePrintClient({ id }: { id: string }) {
       .then((d) => {
         if (d.error) throw new Error(d.error);
         setData(d);
-        // Only auto-print if NOT in design mode and auto-print is on
-        if (!isDesignMode && isAutoPrintEnabled) {
-          setTimeout(() => window.print(), 800);
+        if (!isDesignMode) {
+          setTimeout(() => {
+            sunmiPrinter.printTicket({
+              id: d.id,
+              name: d.name,
+              email: d.email,
+              company: d.company,
+              status: d.status,
+            });
+          }, 800);
         }
       })
       .catch((e) => setError(e.message));
@@ -116,7 +134,7 @@ export function BadgePrintClient({ id }: { id: string }) {
           <p className="text-xs text-slate-400 font-medium hidden md:block">
             {isDesignMode ? "Drag elements to move • Click eye to hide" : "Preview mode • Ready to print"}
           </p>
-          <Button onClick={() => window.print()} className="gap-2 bg-slate-900 hover:bg-slate-800 shadow-lg h-9">
+          <Button onClick={handlePrint} className="gap-2 bg-slate-900 hover:bg-slate-800 shadow-lg h-9">
             <Printer className="h-4 w-4" />
             Print Now
           </Button>

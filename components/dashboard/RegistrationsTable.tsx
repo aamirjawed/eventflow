@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatDate, STATUS_COLORS, STATUS_LABELS } from "@/lib/utils";
 import { AddRegistrationDialog } from "./AddRegistrationDialog";
+import { PrintTicketButton } from "@/components/printer/PrintTicketButton";
 import { toast } from "sonner";
 import type { IRegistration } from "@/models/Registration";
 
@@ -312,15 +313,19 @@ export function RegistrationsTable() {
                               <QrCode className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button
+                          <PrintTicketButton
+                            ticket={{
+                              id: String(reg._id),
+                              name: String(displayName),
+                              email: String(displayEmail),
+                              company: String(displayCompany) !== "—" ? String(displayCompany) : undefined,
+                              status: reg.status,
+                            }}
                             variant="ghost"
                             size="icon"
-                            title="Print Badge"
-                            onClick={() => handlePrintBadge(String(reg._id))}
-                            className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
+                            title="Print Sunmi Thermal Ticket"
+                            className="h-8 w-8 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                          />
                           <Button
                             variant="ghost"
                             size="icon"

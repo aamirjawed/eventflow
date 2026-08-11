@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DynamicForm } from "@/components/forms/DynamicForm";
 import { QRCodeSVG } from "qrcode.react";
 import { CheckCircle } from "lucide-react";
+import { sunmiPrinter } from "@/lib/printer/sunmiPrinter";
 
 export function RegisterForm() {
   const [success, setSuccess] = useState(false);
@@ -58,7 +59,14 @@ export function RegisterForm() {
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3">
           <button
             className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
-            onClick={() => window.print()}
+            onClick={() =>
+              sunmiPrinter.printTicket({
+                id: regId,
+                name,
+                email: "",
+                status: "pre_registered",
+              })
+            }
           >
             Print QR Code
           </button>

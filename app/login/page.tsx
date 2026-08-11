@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,7 +18,15 @@ function LoginForm() {
   const [isLocalhost, setIsLocalhost] = useState(false);
 
   useEffect(() => {
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    // Show instant login in dev mode or local network IPs
+    if (
+      process.env.NODE_ENV !== "production" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.startsWith("10.") ||
+      window.location.hostname.startsWith("192.168.") ||
+      window.location.hostname.includes("loca.lt")
+    ) {
       setIsLocalhost(true);
     }
   }, []);
@@ -119,26 +128,34 @@ function LoginForm() {
         Send magic link
       </Button>
 
-      {/* Auto Login for Dev */}
+      {/* Auto Login for Dev & Sunmi POS */}
       {isLocalhost && (
         <div className="pt-4 border-t border-dashed mt-4">
-          <Button 
-            type="button" 
-            variant="outline" 
-            className="w-full border-primary/20 text-primary hover:bg-primary/5 gap-2"
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-primary/20 text-primary hover:bg-primary/5 gap-2 font-bold"
             onClick={async () => {
               setLoading(true);
-              await signIn("credentials", {
-                email: email, // Leave empty to let backend use ADMIN_EMAILS[0]
+              const loginEmail = email || "admin@example.com";
+              const res = await signIn("credentials", {
+                email: loginEmail,
+                redirect: false,
                 callbackUrl: "/dashboard",
               });
+              if (res?.ok) {
+                window.location.href = "/dashboard";
+              } else {
+                setLoading(false);
+                setError("Login failed. Check admin email allowlist.");
+              }
             }}
           >
-            <Zap className="h-4 w-4 fill-primary" />
-            Auto Login (Dev Mode)
+            <Zap className="h-4 w-4 fill-primary text-primary" />
+            Instant Admin Sign In (1-Click)
           </Button>
           <p className="text-[10px] text-center text-muted-foreground mt-2 italic">
-            This button bypasses email verification and is only visible on localhost.
+            Bypasses email verification for fast POS terminal access.
           </p>
         </div>
       )}

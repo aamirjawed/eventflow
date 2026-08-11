@@ -58,14 +58,30 @@
   }
 }
 
-/* Badge print styles */
+/* Badge & Thermal Printer Print Styles */
 @media print {
+  @page {
+    size: 58mm 140mm;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
   body * {
     visibility: hidden;
   }
 
   #badge-print-area,
-  #badge-print-area * {
+  #badge-print-area *,
+  .thermal-receipt-container,
+  .thermal-receipt-container * {
     visibility: visible !important;
   }
 
@@ -76,5 +92,18 @@
     width: 100%;
     visibility: visible !important;
     display: block !important;
+  }
+
+  .thermal-receipt-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: always;
   }
 }

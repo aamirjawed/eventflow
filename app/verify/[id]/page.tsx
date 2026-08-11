@@ -13,6 +13,7 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
+import { sunmiPrinter } from "@/lib/printer/sunmiPrinter";
 
 interface RegistrationData {
   name: string;
@@ -230,7 +231,15 @@ export default function VerifyPage() {
           <div className="pt-8 space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <button 
-                onClick={() => window.print()}
+                onClick={() => {
+                  sunmiPrinter.printTicket({
+                    id: String(id),
+                    name: registration.name,
+                    email: registration.email,
+                    company: registration.company,
+                    status: registration.status,
+                  });
+                }}
                 className="flex-1 flex items-center justify-center gap-2 py-4 bg-slate-900 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-slate-200"
               >
                 <Printer className="h-4 w-4" /> Print Badge
