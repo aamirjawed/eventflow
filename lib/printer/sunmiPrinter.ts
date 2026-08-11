@@ -18,19 +18,22 @@ export interface PrinterConnectionState {
   status: PrinterConnectionStatus;
   deviceName: string | null;
   method: "bridge" | "bluetooth" | "none" | null;
+  error?: string | null;
 }
 
-// Common Bluetooth GATT service UUIDs for ESC/POS Thermal Printers
+// Common Bluetooth GATT service & characteristic UUIDs for ESC/POS Thermal Printers
 const PRINTER_GATT_SERVICES = [
   "000018f0-0000-1000-8000-00805f9b34fb",
   "0000e7e0-0000-1000-8000-00805f9b34fb",
   "49535343-fe7d-4ae5-8fa9-9fafd205e455",
   "00001101-0000-1000-8000-00805f9b34fb",
   "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000180a-0000-1000-8000-00805f9b34fb",
 ];
 
 // Ambient types for Web Bluetooth API
 interface WebBluetoothGATTCharacteristic {
+  uuid?: string;
   properties: {
     write?: boolean;
     writeWithoutResponse?: boolean;
@@ -41,18 +44,22 @@ interface WebBluetoothGATTCharacteristic {
 
 interface WebBluetoothDevice {
   name?: string;
+  id?: string;
   gatt?: {
     connected: boolean;
     connect(): Promise<WebBluetoothGATTServer>;
+    disconnect(): void;
   };
   addEventListener(type: string, listener: EventListener): void;
 }
 
 interface WebBluetoothGATTServer {
+  getPrimaryService(service: string): Promise<WebBluetoothGATTService>;
   getPrimaryServices(): Promise<WebBluetoothGATTService[]>;
 }
 
 interface WebBluetoothGATTService {
+  uuid?: string;
   getCharacteristics(): Promise<WebBluetoothGATTCharacteristic[]>;
 }
 
@@ -81,12 +88,32 @@ declare global {
   }
 }
 
+// Timeout helper to prevent infinite GATT buffering / hanging
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, ms);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 class SunmiPrinterService {
   private listeners: ((state: PrinterConnectionState) => void)[] = [];
   private state: PrinterConnectionState = {
     status: "disconnected",
     deviceName: null,
     method: null,
+    error: null,
   };
 
   private gattCharacteristic: WebBluetoothGATTCharacteristic | null = null;
@@ -106,6 +133,7 @@ class SunmiPrinterService {
         status: "connected",
         deviceName: "Sunmi Hardware SDK",
         method: "bridge",
+        error: null,
       });
       return;
     }
@@ -116,6 +144,7 @@ class SunmiPrinterService {
         status: "connected",
         deviceName: this.gattDevice.name || "Thermal Bluetooth Printer",
         method: "bluetooth",
+        error: null,
       });
       return;
     }
@@ -126,6 +155,7 @@ class SunmiPrinterService {
       status: "disconnected",
       deviceName: null,
       method: hasWebBluetooth ? null : "none",
+      error: null,
     });
   }
 
@@ -162,6 +192,7 @@ class SunmiPrinterService {
 
   /**
    * Prompts the browser's native Bluetooth pairing dialog to pair with the thermal printer.
+   * Includes a strict 10s timeout to avoid infinite buffering on Sunmi / Android hardware.
    */
   public async connectBluetooth(): Promise<boolean> {
     if (typeof navigator === "undefined" || !navigator.bluetooth) {
@@ -176,7 +207,7 @@ class SunmiPrinterService {
         optionalServices: PRINTER_GATT_SERVICES,
       });
 
-      console.log("[SunmiPrinter] Bluetooth device selected:", device.name);
+      console.log("[SunmiPrinter] Bluetooth device selected:", device.name || "Unknown Printer");
       this.gattDevice = device;
 
       device.addEventListener("gattserverdisconnected", () => {
@@ -185,38 +216,98 @@ class SunmiPrinterService {
         this.detect();
       });
 
-      const server = await device.gatt?.connect();
+      // Connect to GATT server with 8 second timeout
+      console.log("[SunmiPrinter] Connecting to GATT Server...");
+      const server = await withTimeout(
+        device.gatt?.connect() as Promise<WebBluetoothGATTServer>,
+        8000,
+        "GATT connection timed out after 8 seconds. Please make sure printer is turned ON and paired in Android Settings."
+      );
+
       if (!server) throw new Error("Could not connect to GATT server");
 
       let writeChar: WebBluetoothGATTCharacteristic | null = null;
-      const services = await server.getPrimaryServices();
 
-      for (const service of services) {
-        const characteristics = await service.getCharacteristics();
-        for (const char of characteristics) {
-          if (char.properties.write || char.properties.writeWithoutResponse) {
-            writeChar = char;
-            break;
+      // Try discovering primary services with 8s timeout
+      console.log("[SunmiPrinter] Discovering printer GATT services...");
+      
+      // Strategy A: Try known primary service UUIDs directly first
+      for (const serviceUuid of PRINTER_GATT_SERVICES) {
+        try {
+          const service = await server.getPrimaryService(serviceUuid);
+          const chars = await service.getCharacteristics();
+          for (const c of chars) {
+            if (c.properties.write || c.properties.writeWithoutResponse) {
+              writeChar = c;
+              console.log("[SunmiPrinter] Found writable characteristic in targeted service:", serviceUuid);
+              break;
+            }
           }
+        } catch {
+          // Ignore service lookup failure, try next target
         }
         if (writeChar) break;
       }
 
+      // Strategy B: Fallback to listing all primary services if targeted lookup failed
       if (!writeChar) {
-        throw new Error("No writable Bluetooth GATT characteristic found on printer.");
+        const services = await withTimeout(
+          server.getPrimaryServices(),
+          6000,
+          "Service discovery timed out."
+        );
+
+        for (const service of services) {
+          try {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                writeChar = char;
+                break;
+              }
+            }
+          } catch {
+            // Ignore single service lookup error
+          }
+          if (writeChar) break;
+        }
+      }
+
+      if (!writeChar) {
+        throw new Error("No writable ESC/POS GATT characteristic found on printer.");
       }
 
       this.gattCharacteristic = writeChar;
       this.setState({
         status: "connected",
-        deviceName: device.name || "Inner Thermal Printer",
+        deviceName: device.name || "Bluetooth ESC/POS Printer",
         method: "bluetooth",
+        error: null,
       });
 
       console.log("[SunmiPrinter] Web Bluetooth connected successfully!");
       return true;
     } catch (err: any) {
       console.error("[SunmiPrinter] Web Bluetooth pairing error:", err);
+      
+      // Disconnect GATT if left half-open
+      try {
+        if (this.gattDevice?.gatt?.connected) {
+          this.gattDevice.gatt.disconnect();
+        }
+      } catch {
+        // ignore
+      }
+
+      this.gattCharacteristic = null;
+      this.setState({
+        status: "disconnected",
+        deviceName: null,
+        method: null,
+        error: err.message || "Bluetooth connection failed",
+      });
+
+      alert(err.message || "Could not connect to printer via Bluetooth.");
       return false;
     }
   }
@@ -231,17 +322,26 @@ class SunmiPrinterService {
     }
 
     // 2. Active Web Bluetooth Connection
-    if (this.gattCharacteristic) {
+    if (this.gattCharacteristic && this.gattDevice?.gatt?.connected) {
       console.log("[SunmiPrinter] Printing via Web Bluetooth GATT");
       await this.printViaBluetooth(ticket);
       return;
     }
 
-    // 3. Prompt user to connect Bluetooth if not connected
-    console.log("[SunmiPrinter] Bluetooth not connected. Opening browser pairing selector...");
-    const connected = await this.connectBluetooth();
-    if (connected && this.gattCharacteristic) {
-      await this.printViaBluetooth(ticket);
+    // 3. Prompt user to connect Bluetooth if supported
+    if (typeof navigator !== "undefined" && "bluetooth" in navigator) {
+      console.log("[SunmiPrinter] Bluetooth not connected. Opening browser pairing selector...");
+      const connected = await this.connectBluetooth();
+      if (connected && this.gattCharacteristic) {
+        await this.printViaBluetooth(ticket);
+        return;
+      }
+    }
+
+    // 4. Fallback to standard browser window.print() thermal receipt
+    console.log("[SunmiPrinter] Falling back to standard browser thermal printing...");
+    if (typeof window !== "undefined") {
+      window.print();
     }
   }
 
@@ -249,7 +349,7 @@ class SunmiPrinterService {
     if (!this.gattCharacteristic) return;
 
     const bytes = this.buildEscPosBytes(ticket);
-    const CHUNK_SIZE = 100; // Chunk size for reliable GATT writes
+    const CHUNK_SIZE = 80; // Reliable chunk size for Sunmi/Android GATT buffers
 
     try {
       for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
@@ -259,11 +359,15 @@ class SunmiPrinterService {
         } else {
           await this.gattCharacteristic.writeValueWithResponse(chunk);
         }
-        await new Promise((res) => setTimeout(res, 20)); // Subtle delay between GATT chunks
+        await new Promise((res) => setTimeout(res, 25)); // 25ms delay between GATT chunks
       }
       console.log("[SunmiPrinter] Web Bluetooth print complete!");
     } catch (err) {
       console.error("[SunmiPrinter] Bluetooth write error:", err);
+      // Fall back to window.print() if Bluetooth write failed mid-stream
+      if (typeof window !== "undefined") {
+        window.print();
+      }
     }
   }
 
@@ -313,6 +417,7 @@ class SunmiPrinterService {
       console.log("[SunmiPrinter] Printed successfully via Sunmi SDK Bridge");
     } catch (err) {
       console.error("[SunmiPrinter] SDK Bridge print error:", err);
+      if (typeof window !== "undefined") window.print();
     }
   }
 

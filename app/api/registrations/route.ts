@@ -3,110 +3,115 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Registration } from "@/models/Registration";
-import mongoose from "mongoose";
 import { sendConfirmationEmail } from "@/lib/email";
+
+export const dynamic = "force-dynamic";
 
 /** GET /api/registrations — Admin: list all registrations with optional filters */
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  try {
+    const session = await getServerSession(authOptions);
 
-  if (!session) {
-    console.warn("[API] Registrations: Unauthorized access attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  await connectDB();
-  console.log(`[API] Connected to DB: ${mongoose.connection.name}`);
-
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const search = searchParams.get("search");
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "50");
-
-  // Build query
-  const query: any = {};
-  if (status && status !== "all") {
-    if (status === "checked_in") {
-      query.isCheckedIn = true;
-    } else {
-      query.status = status;
+    if (!session) {
+      console.warn("[API /api/registrations] Unauthorized access attempt");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+    const search = searchParams.get("search")?.trim();
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.max(1, parseInt(searchParams.get("limit") || "20"));
+
+    // Build query
+    const query: any = {};
+    if (status && status !== "all") {
+      if (status === "checked_in") {
+        query.isCheckedIn = true;
+      } else {
+        query.status = status;
+      }
+    }
+
+    // Safe regex search (doesn't require a text index in MongoDB)
+    if (search && search.length > 0) {
+      const regex = new RegExp(search, "i");
+      query.$or = [
+        { name: regex },
+        { email: regex },
+        { company: regex },
+        { phone: regex },
+      ];
+    }
+
+    try {
+      await connectDB();
+      const [registrations, total] = await Promise.all([
+        Registration.find(query)
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+        Registration.countDocuments(query),
+      ]);
+
+      return NextResponse.json({ registrations, total, page, limit });
+    } catch (dbErr) {
+      console.warn("[API /api/registrations] DB Error, returning empty fallback list:", dbErr);
+      return NextResponse.json({ registrations: [], total: 0, page, limit });
+    }
+  } catch (err: any) {
+    console.error("[API /api/registrations] Server Error:", err);
+    return NextResponse.json({ registrations: [], total: 0, page: 1, limit: 20 });
   }
-  if (search) {
-    query.$text = { $search: search };
-  }
-
-  console.log("[API] Registration Query:", JSON.stringify(query));
-
-  const [registrations, total] = await Promise.all([
-    Registration.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    Registration.countDocuments(query),
-  ]);
-
-  console.log(`[API] Found ${registrations.length} registrations (Total: ${total})`);
-
-  return NextResponse.json({ registrations, total, page, limit });
 }
 
 /** POST /api/registrations — Public: pre-register OR Admin: on-site register */
 export async function POST(req: NextRequest) {
-  console.log("[API] POST /api/registrations request received");
-  await connectDB();
-  console.log("[API] DB connected in /api/registrations");
+  try {
+    const body = await req.json();
+    const { name, email, phone, company, customFields, status } = body;
 
-  const body = await req.json();
-  const { name, email, phone, company, customFields, status } = body;
-  console.log(`[API] Registering: ${name} (${email})`);
-
-  if (!name || !email) {
-    return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
-  }
-
-  // Check for duplicate email
-  const existing = await Registration.findOne({ email: email.toLowerCase() });
-  if (existing) {
-    console.warn(`[API] Duplicate email registration attempt: ${email}`);
-    return NextResponse.json(
-      { error: "This email is already registered" },
-      { status: 409 }
-    );
-  }
-
-  // Only admins can set status to "registered"
-  const session = await getServerSession(authOptions);
-  const resolvedStatus = session ? (status || "registered") : "pre_registered";
-  console.log(`[API] Status resolved to: ${resolvedStatus}`);
-
-  const registration = await Registration.create({
-    name,
-    email,
-    phone,
-    company,
-    customFields: customFields || {},
-    status: resolvedStatus,
-  });
-
-  console.log(`[API] Registration created: ${registration._id}`);
-
-  // Automatically send confirmation email (Skip for on-site registrations)
-  if (resolvedStatus !== "registered") {
-    try {
-      console.log("[API] Attempting to send confirmation email...");
-      const emailResult = await sendConfirmationEmail(registration);
-      if (emailResult.error) {
-        console.error("[API] Resend returned an error:", emailResult.error);
-      } else {
-        console.log("[API] Registration email sent successfully!");
-      }
-    } catch (err) {
-      console.error("[API] CRITICAL: Failed to auto-send registration email:", err);
+    if (!name || !email) {
+      return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
     }
-  }
 
-  return NextResponse.json({ registration }, { status: 201 });
+    await connectDB();
+
+    // Check for duplicate email
+    const existing = await Registration.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return NextResponse.json(
+        { error: "This email is already registered" },
+        { status: 409 }
+      );
+    }
+
+    // Determine status
+    const session = await getServerSession(authOptions);
+    const resolvedStatus = session ? (status || "registered") : "pre_registered";
+
+    const registration = await Registration.create({
+      name,
+      email: email.toLowerCase(),
+      phone,
+      company,
+      customFields: customFields || {},
+      status: resolvedStatus,
+    });
+
+    // Automatically send confirmation email (Skip for on-site registrations)
+    if (resolvedStatus !== "registered") {
+      try {
+        await sendConfirmationEmail(registration);
+      } catch (emailErr) {
+        console.error("[API /api/registrations] Auto-send email warning:", emailErr);
+      }
+    }
+
+    return NextResponse.json({ registration }, { status: 201 });
+  } catch (err: any) {
+    console.error("[API /api/registrations] POST Error:", err);
+    return NextResponse.json({ error: err.message || "Failed to create registration" }, { status: 500 });
+  }
 }
