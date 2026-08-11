@@ -17,8 +17,8 @@ if (!cached) {
 export async function connectDB() {
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
-    console.error("[DB Error] MONGODB_URI is not defined in environment variables");
-    throw new Error("Please define MONGODB_URI in your environment variables");
+    console.warn("[DB Warning] MONGODB_URI is not defined in environment variables");
+    throw new Error("MONGODB_URI is missing");
   }
 
   if (cached.conn) return cached.conn;
@@ -26,18 +26,29 @@ export async function connectDB() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
-      heartbeatFrequencyMS: 1000,
+      dbName: "eventflow",
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 4000,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
-      return m;
-    }).catch((err) => {
-      cached.promise = null; // Reset promise on failure
-      throw err;
-    });
+    cached.promise = mongoose
+      .connect(MONGODB_URI, opts)
+      .then((m) => {
+        console.log("[DB SUCCESS] Connected to MongoDB Atlas successfully");
+        return m;
+      })
+      .catch((err) => {
+        console.error("[DB ERROR] MongoDB connection failed (bad auth or network):", err.message || err);
+        cached.promise = null; // Reset promise on failure
+        throw err;
+      });
   }
 
-  cached.conn = await cached.promise;
-  return cached.conn;
+  try {
+    cached.conn = await cached.promise;
+    return cached.conn;
+  } catch (err) {
+    cached.promise = null;
+    throw err;
+  }
 }
