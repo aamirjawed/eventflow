@@ -3,25 +3,28 @@
 import { useState } from "react";
 import { DynamicForm } from "@/components/forms/DynamicForm";
 import { QRCodeSVG } from "qrcode.react";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Printer, ArrowRight } from "lucide-react";
 import { sunmiPrinter } from "@/lib/printer/sunmiPrinter";
+import { Button } from "@/components/ui/button";
 
 export function RegisterForm() {
   const [success, setSuccess] = useState(false);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
   const [regId, setRegId] = useState("");
 
   async function handleSubmit(data: Record<string, unknown>) {
-    const { name: n, email, phone, company, newsletter, role, tshirt, ...rest } = data as Record<string, string>;
+    const { name: n, email: e, phone, company: c, newsletter, role, tshirt, ...rest } = data as Record<string, string>;
 
     const res = await fetch("/api/registrations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: n,
-        email,
+        email: e,
         phone,
-        company,
+        company: c,
         status: "pre_registered",
         customFields: { newsletter, role, tshirt, ...rest },
       }),
@@ -30,13 +33,17 @@ export function RegisterForm() {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Registration failed");
 
+    const newId = json.registration._id || json.registration.id;
     setName(n);
-    setRegId(json.registration._id);
+    setEmail(e);
+    setCompany(c || "");
+    setRegId(newId);
     setSuccess(true);
   }
 
   if (success) {
-    const verifyUrl = `${window.location.origin}/verify/${regId}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const verifyUrl = `${origin}/verify/${regId}`;
 
     return (
       <div className="text-center py-4 space-y-6">
@@ -50,32 +57,46 @@ export function RegisterForm() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">You're in, {name}!</h2>
-          <p className="text-muted-foreground text-sm max-w-[280px] mx-auto">
-            This is your personal check-in QR code. Please save it or take a screenshot to show at the entrance.
+          <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+            Pre-registration Complete!
+          </h2>
+          <p className="text-muted-foreground text-sm max-w-[290px] mx-auto">
+            Welcome, <strong className="text-slate-900 dark:text-white">{name}</strong>! Your ticket pass is ready. Please present this QR code to the entrance staff at the event.
           </p>
         </div>
 
-        <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3">
-          <button
-            className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+        <div className="pt-2 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3">
+          <Button
+            size="lg"
+            className="w-full py-6 text-base font-bold shadow-lg gap-2"
             onClick={() =>
               sunmiPrinter.printTicket({
                 id: regId,
                 name,
-                email: "",
+                email,
+                company,
                 status: "pre_registered",
               })
             }
           >
-            Print QR Code
-          </button>
-          <button
-            className="text-muted-foreground text-xs hover:text-primary transition-colors"
-            onClick={() => setSuccess(false)}
+            <Printer className="h-5 w-5" />
+            Print Ticket Pass
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-xs text-muted-foreground hover:text-slate-900"
+            onClick={() => {
+              setSuccess(false);
+              setName("");
+              setEmail("");
+              setCompany("");
+              setRegId("");
+            }}
           >
-            Register another person
-          </button>
+            Register Another Attendee
+          </Button>
         </div>
       </div>
     );
