@@ -1,8 +1,6 @@
 import { Metadata } from "next";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { RegistrationsTable } from "@/components/dashboard/RegistrationsTable";
-import { DashboardActions } from "./DashboardActions";
-import { PrinterConnectionBadge } from "@/components/printer/PrinterConnectionBadge";
 
 export const metadata: Metadata = {
   title: "Dashboard | EventFlow",
@@ -18,10 +16,6 @@ export default function DashboardPage() {
           <p className="text-muted-foreground text-sm mt-0.5">
             Manage event registrations and check-ins
           </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <PrinterConnectionBadge />
-          <DashboardActions />
         </div>
       </div>
 

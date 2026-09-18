@@ -1,41 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { connectDB } from "@/lib/db";
-import { Registration } from "@/models/Registration";
+import { getBackendRegistrations } from "@/lib/backendApi";
 import Papa from "papaparse";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/export — Export registrations as CSV */
+/** GET /api/admin/export — Export registrations directly from Express backend as CSV */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    await connectDB();
-
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
+    const status = searchParams.get("status") || "all";
 
-    const query: any = {};
-    if (status && status !== "all") query.status = status;
+    // Pull registrations from Express backend
+    const result = await getBackendRegistrations({
+      limit: 10000,
+      status,
+    });
+    const registrations = result.registrations;
 
-    const registrations = await Registration.find(query).sort({ createdAt: -1 }).lean();
-
-    const rows = registrations.map((r) => ({
-      id: r._id.toString(),
-      name: r.name,
-      email: r.email,
+    const rows = registrations.map((r: any) => ({
+      id: r._id?.toString() || r.id || "",
+      name: r.name || "",
+      email: r.email || "",
       phone: r.phone || "",
       company: r.company || "",
-      status: r.status,
+      status: r.status || "",
       checkedInAt: r.checkedInAt ? new Date(r.checkedInAt).toISOString() : "",
-      createdAt: new Date(r.createdAt).toISOString(),
+      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : "",
       ...Object.fromEntries(
         Object.entries(r.customFields || {}).map(([k, v]) => [
           `custom_${k}`,
-          Array.isArray(v) ? v.join(", ") : String(v),
+          Array.isArray(v) ? v.join(", ") : String(v ?? ""),
         ])
       ),
     }));

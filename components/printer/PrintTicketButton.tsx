@@ -52,6 +52,8 @@ export const PrintTicketButton: React.FC<PrintTicketButtonProps> = ({
     }
   };
 
+  const isIconOnly = size === "icon";
+
   return (
     <>
       <Button
@@ -59,7 +61,7 @@ export const PrintTicketButton: React.FC<PrintTicketButtonProps> = ({
         size={size}
         onClick={handlePrint}
         disabled={isPrinting}
-        className={`gap-2 shadow-sm font-semibold ${className}`}
+        className={`shadow-sm font-semibold inline-flex items-center justify-center shrink-0 ${!isIconOnly ? "gap-2" : ""} ${className}`}
         {...props}
       >
         {isPrinting ? (
@@ -67,7 +69,7 @@ export const PrintTicketButton: React.FC<PrintTicketButtonProps> = ({
         ) : (
           <Printer className="h-4 w-4" />
         )}
-        {isPrinting ? "Printing..." : label}
+        {!isIconOnly && (isPrinting ? "Printing..." : label)}
       </Button>
 
       {/* 58mm Thermal Ticket container for Chrome browser print */}

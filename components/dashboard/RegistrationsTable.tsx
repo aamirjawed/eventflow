@@ -303,47 +303,25 @@ export function RegistrationsTable() {
                           {formatDate(reg.createdAt)}
                         </td>
                       )}
-                      <td className="py-4 px-6">
-                        <div className="flex gap-1 justify-end">
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 justify-end">
                           {!(reg as any).isCheckedIn && (
                             <Button
                               variant="ghost"
                               size="icon"
                               title="Check In"
                               onClick={() => handleCheckIn(String(reg._id))}
-                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 rounded-lg"
+                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 rounded-lg shrink-0"
                             >
                               <QrCode className="h-4 w-4" />
                             </Button>
                           )}
-                          <PrintTicketButton
-                            ticket={{
-                              id: String(reg._id),
-                              name: String(displayName),
-                              email: String(displayEmail),
-                              company: String(displayCompany) !== "—" ? String(displayCompany) : undefined,
-                              status: reg.status,
-                            }}
-                            variant="ghost"
-                            size="icon"
-                            title="Print Sunmi Thermal Ticket"
-                            className="h-8 w-8 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Send Email"
-                            onClick={() => handleEmail(String(reg._id))}
-                            className="h-8 w-8 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
-                          >
-                            <Mail className="h-4 w-4" />
-                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             title="Delete"
                             onClick={() => handleDelete(String(reg._id))}
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-red-50 rounded-lg"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-red-50 rounded-lg shrink-0"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
