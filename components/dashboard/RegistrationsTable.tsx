@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/index";
 import {
   Printer, Mail, Trash2, Search, UserPlus,
   ChevronLeft, ChevronRight, QrCode, Download, CheckCircle,
-  Columns, Filter
+  Columns, Filter, RefreshCw
 } from "lucide-react";
 import { formatDate, STATUS_COLORS, STATUS_LABELS } from "@/lib/utils";
 import { AddRegistrationDialog } from "./AddRegistrationDialog";
@@ -46,7 +46,10 @@ export function RegistrationsTable() {
   });
 
   // Fetch form schema to know dynamic fields
-  const { data: formData } = useSWR("/api/forms?slug=pre-registration", fetcher);
+  const { data: formData } = useSWR("/api/forms?slug=pre-registration", fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
   
   const dynamicFields = useMemo(() => {
     const fields = formData?.form?.fields || [];
@@ -81,12 +84,13 @@ export function RegistrationsTable() {
 
   const { status: sessionStatus } = useSession();
 
-  const { data, isLoading, mutate } = useSWR<{
+  const { data, isLoading, isValidating, mutate } = useSWR<{
     registrations: (IRegistration & { _id: string })[];
     total: number;
   }>(`/api/registrations?${query}`, fetcher, {
     keepPreviousData: true,
-    refreshInterval: 3000,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
   });
 
   const totalPages = Math.ceil((data?.total || 0) / 20);
@@ -145,7 +149,15 @@ export function RegistrationsTable() {
           {filterTabs.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => { setStatus(tab.value); setPage(1); }}
+              onClick={() => {
+                if (status === tab.value) {
+                  mutate();
+                  toast.info(`Refreshed ${tab.label}`);
+                } else {
+                  setStatus(tab.value);
+                  setPage(1);
+                }
+              }}
               className={`px-3 py-1.5 text-xs rounded-lg font-bold transition-all ${status === tab.value
                 ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
                 : "bg-slate-50 text-slate-500 hover:bg-slate-100"
@@ -166,6 +178,22 @@ export function RegistrationsTable() {
               className="pl-8 h-9 text-sm rounded-lg"
             />
           </div>
+
+          {/* Refresh Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              mutate();
+              toast.info("Refreshed list");
+            }}
+            disabled={isValidating}
+            className="gap-1.5 h-9"
+            title="Refresh current list"
+          >
+            <RefreshCw className={`h-4 w-4 ${isValidating ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
 
           {/* Column Selector */}
           <DropdownMenu>

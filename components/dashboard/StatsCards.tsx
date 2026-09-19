@@ -3,7 +3,8 @@
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { Card, CardContent, Skeleton } from "@/components/ui/index";
-import { Users, UserCheck, UserPlus, QrCode } from "lucide-react";
+import { Users, UserCheck, UserPlus, QrCode, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -15,8 +16,9 @@ interface Stats {
 }
 
 export function StatsCards() {
-  const { data, isLoading } = useSWR<Stats>("/api/admin/stats", fetcher, {
-    refreshInterval: 3000, // Refresh every 3s for real-time feel
+  const { data, isLoading, isValidating, mutate } = useSWR<Stats>("/api/admin/stats", fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
   });
 
   const cards = [
@@ -51,32 +53,47 @@ export function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <Card key={card.label}>
-            <CardContent className="p-5">
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-8 w-16" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              ) : (
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-3xl font-bold tabular-nums">{card.value}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">{card.label}</p>
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => mutate()}
+          disabled={isValidating}
+          className="text-xs text-muted-foreground hover:text-foreground h-7 gap-1.5"
+          title="Refresh statistics"
+        >
+          <RefreshCw className={`h-3 w-3 ${isValidating ? "animate-spin" : ""}`} />
+          Refresh Stats
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.label}>
+              <CardContent className="p-5">
+                {isLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-4 w-24" />
                   </div>
-                  <div className={`p-2 rounded-lg ${card.bg}`}>
-                    <Icon className={`h-5 w-5 ${card.color}`} />
+                ) : (
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-3xl font-bold tabular-nums">{card.value}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{card.label}</p>
+                    </div>
+                    <div className={`p-2 rounded-lg ${card.bg}`}>
+                      <Icon className={`h-5 w-5 ${card.color}`} />
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
